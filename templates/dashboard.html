@@ -179,6 +179,12 @@
     <a href="/">Home</a>
     <a href="/dashboard" class="active">Predict</a>
   </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:0.85rem;color:var(--accent);padding:6px 14px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:20px;">
+      👤 {{ username }}
+    </span>
+    <a href="/logout" style="padding:8px 18px;border-radius:6px;text-decoration:none;font-size:0.88rem;font-weight:600;color:#ff3c5a;border:1px solid rgba(255,60,90,0.3);transition:all 0.2s;" onmouseover="this.style.background='rgba(255,60,90,0.1)'" onmouseout="this.style.background='transparent'">Logout</a>
+  </div>
 </nav>
 
 <div class="page-wrap">
