@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Result — IDS</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020c18; --card: #071525; --border: #0d2137;
+    --accent: #00d4ff; --accent2: #0077ff;
+    --danger: #ff3c5a; --safe: #00e676;
+    --text: #c8e6ff; --dim: #4a7a9b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Exo 2', sans-serif; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px; z-index: 0;
+  }
+
+  nav {
+    width: 100%; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 40px;
+    background: rgba(7,21,37,0.95);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Rajdhani', sans-serif; font-size: 1.3rem; font-weight: 700;
+    color: var(--accent); text-decoration: none;
+  }
+  .nav-links a {
+    padding: 7px 18px; border-radius: 6px; text-decoration: none;
+    font-size: 0.88rem; font-weight: 600; color: var(--dim);
+    transition: all 0.2s; border: 1px solid transparent; margin-left: 6px;
+  }
+  .nav-links a:hover { color: var(--accent); border-color: var(--accent); background: rgba(0,212,255,0.08); }
+
+  .result-wrap {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; width: 100%; max-width: 700px;
+    padding: 60px 20px;
+    animation: fadeUp 0.5s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(24px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* Big result card */
+  .result-card {
+    width: 100%;
+    background: var(--card);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    margin-bottom: 24px;
+  }
+
+  .result-banner {
+    padding: 48px 40px;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .result-banner.normal {
+    background: linear-gradient(135deg, rgba(0,230,118,0.12), rgba(0,230,118,0.04));
+    border-bottom: 1px solid rgba(0,230,118,0.2);
+  }
+  .result-banner.attack {
+    background: linear-gradient(135deg, rgba(255,60,90,0.15), rgba(255,60,90,0.04));
+    border-bottom: 1px solid rgba(255,60,90,0.2);
+  }
+
+  /* Animated ring */
+  .result-ring {
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    margin: 0 auto 24px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3.5rem;
+    position: relative;
+  }
+  .result-ring.normal {
+    background: rgba(0,230,118,0.12);
+    border: 3px solid rgba(0,230,118,0.4);
+    box-shadow: 0 0 40px rgba(0,230,118,0.2), inset 0 0 30px rgba(0,230,118,0.08);
+    animation: ringPulseGreen 2s ease infinite;
+  }
+  .result-ring.attack {
+    background: rgba(255,60,90,0.12);
+    border: 3px solid rgba(255,60,90,0.5);
+    box-shadow: 0 0 40px rgba(255,60,90,0.25), inset 0 0 30px rgba(255,60,90,0.1);
+    animation: ringPulseRed 1.2s ease infinite;
+  }
+  @keyframes ringPulseGreen {
+    0%,100% { box-shadow: 0 0 30px rgba(0,230,118,0.2); }
+    50%     { box-shadow: 0 0 60px rgba(0,230,118,0.4); }
+  }
+  @keyframes ringPulseRed {
+    0%,100% { box-shadow: 0 0 30px rgba(255,60,90,0.25); }
+    50%     { box-shadow: 0 0 70px rgba(255,60,90,0.5); }
+  }
+
+  .result-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 3rem; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .result-label.normal { color: var(--safe); }
+  .result-label.attack { color: var(--danger); }
+
+  .result-sub {
+    font-size: 0.95rem; color: var(--dim); margin-bottom: 20px;
+  }
+
+  /* Confidence bar */
+  .confidence-wrap { max-width: 320px; margin: 0 auto; }
+  .conf-label {
+    display: flex; justify-content: space-between;
+    font-size: 0.82rem; color: var(--dim); margin-bottom: 8px;
+  }
+  .conf-val { font-family: 'Share Tech Mono', monospace; color: var(--text); }
+  .conf-bar {
+    height: 8px; background: rgba(255,255,255,0.06);
+    border-radius: 4px; overflow: hidden;
+  }
+  .conf-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 1s ease;
+  }
+  .conf-fill.normal { background: linear-gradient(90deg, #00c853, var(--safe)); }
+  .conf-fill.attack { background: linear-gradient(90deg, #c62828, var(--danger)); }
+
+  /* Details */
+  .details-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+  }
+  .detail-item {
+    padding: 20px 24px;
+    border-right: 1px solid var(--border);
+    border-top: none;
+  }
+  .detail-item:last-child { border-right: none; }
+  .detail-item:nth-child(n+4) { border-top: 1px solid var(--border); }
+  .d-label { font-size: 0.72rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+  .d-val   { font-family: 'Share Tech Mono', monospace; font-size: 0.92rem; color: var(--text); }
+
+  /* Action buttons */
+  .actions {
+    display: flex; gap: 12px; justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-back {
+    padding: 13px 30px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none; color: var(--bg);
+    font-family: 'Exo 2', sans-serif; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+    transition: all 0.25s;
+    box-shadow: 0 4px 20px rgba(0,212,255,0.3);
+  }
+  .btn-back:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,212,255,0.45); }
+  .btn-home {
+    padding: 13px 30px; border-radius: 10px;
+    border: 1.5px solid var(--border); background: transparent;
+    color: var(--dim); font-family: 'Exo 2', sans-serif;
+    font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-home:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Model badge */
+  .model-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 20px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    font-size: 0.78rem; color: var(--dim);
+    margin-top: 12px;
+  }
+  .model-badge span { color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">🛡 IDS</a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/dashboard">Predict</a>
+  </div>
+</nav>
+
+{% set is_normal = result == 'Normal' %}
+{% set cls = 'normal' if is_normal else 'attack' %}
+
+<div class="result-wrap">
+
+  <div class="result-card">
+
+    <!-- Banner -->
+    <div class="result-banner {{ cls }}">
+      <div class="result-ring {{ cls }}">
+        {{ '✅' if is_normal else '🚨' }}
+      </div>
+      <div class="result-label {{ cls }}">
+        {{ 'NORMAL PACKET' if is_normal else 'ATTACK DETECTED' }}
+      </div>
+      <div class="result-sub">
+        {% if is_normal %}
+          This network connection appears to be legitimate traffic.
+        {% else %}
+          Suspicious activity detected — potential intrusion attempt.
+        {% endif %}
+      </div>
+
+      <!-- Confidence bar -->
+      <div class="confidence-wrap">
+        <div class="conf-label">
+          <span>Model Confidence</span>
+          <span class="conf-val">{{ "%.1f"|format(confidence) }}%</span>
+        </div>
+        <div class="conf-bar">
+          <div class="conf-fill {{ cls }}" style="width: {{ confidence }}%"></div>
+        </div>
+      </div>
+
+      <div class="model-badge">
+        Predicted by <span>Random Forest</span> · NSL-KDD trained
+      </div>
+    </div>
+
+    <!-- Packet details grid -->
+    <div class="details-grid">
+      <div class="detail-item">
+        <div class="d-label">Protocol</div>
+        <div class="d-val">{{ protocol.upper() }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="d-label">Service</div>
+        <div class="d-val">{{ service }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="d-label">Flag</div>
+        <div class="d-val">{{ flag }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="d-label">Duration</div>
+        <div class="d-val">{{ duration }}s</div>
+      </div>
+      <div class="detail-item">
+        <div class="d-label">Source Bytes</div>
+        <div class="d-val">{{ src_bytes }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="d-label">Dst Bytes</div>
+        <div class="d-val">{{ dst_bytes }}</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <a href="/dashboard" class="btn-back">← Analyze Another Packet</a>
+    <a href="/" class="btn-home">Go Home</a>
+  </div>
+
+</div>
+
+</body>
+</html>

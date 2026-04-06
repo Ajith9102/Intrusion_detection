@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analyze Packet — IDS</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020c18; --card: #071525; --card2: #0a1e30;
+    --border: #0d2137; --accent: #00d4ff; --accent2: #0077ff;
+    --danger: #ff3c5a; --safe: #00e676;
+    --text: #c8e6ff; --dim: #4a7a9b;
+    --glow: 0 0 20px rgba(0,212,255,0.3);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Exo 2', sans-serif; min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px; z-index: 0;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 40px;
+    background: rgba(7,21,37,0.95);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Rajdhani', sans-serif; font-size: 1.3rem; font-weight: 700;
+    color: var(--accent); text-decoration: none;
+  }
+  .nav-links { display: flex; gap: 8px; }
+  .nav-links a {
+    padding: 7px 18px; border-radius: 6px; text-decoration: none;
+    font-size: 0.88rem; font-weight: 600; color: var(--dim);
+    transition: all 0.2s; border: 1px solid transparent;
+  }
+  .nav-links a:hover, .nav-links a.active {
+    color: var(--accent); border-color: var(--accent);
+    background: rgba(0,212,255,0.08);
+  }
+
+  .page-wrap {
+    position: relative; z-index: 2;
+    max-width: 1000px; margin: 0 auto; padding: 40px 20px 60px;
+  }
+
+  .page-header { margin-bottom: 32px; }
+  .page-header h1 {
+    font-family: 'Rajdhani', sans-serif; font-size: 2rem; font-weight: 700;
+    color: #fff; margin-bottom: 6px;
+  }
+  .page-header h1 span { color: var(--accent); }
+  .page-header p { color: var(--dim); font-size: 0.92rem; }
+
+  /* Form card */
+  .form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 24px;
+  }
+  .section-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem; font-weight: 700;
+    color: var(--accent); text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 0.78rem; font-weight: 600;
+    color: var(--dim); text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  input, select {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.88rem;
+    transition: all 0.2s;
+    outline: none; width: 100%;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.12);
+    background: rgba(0,212,255,0.04);
+  }
+  select option { background: #071525; }
+  input::placeholder { color: var(--dim); opacity: 0.7; }
+
+  /* Quick presets */
+  .presets {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px;
+  }
+  .preset-btn {
+    padding: 7px 16px;
+    border-radius: 20px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--dim);
+    font-size: 0.8rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    font-family: 'Exo 2', sans-serif;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.normal-preset:hover { border-color: var(--safe); color: var(--safe); }
+  .preset-btn.attack-preset:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* Submit */
+  .submit-row {
+    display: flex; justify-content: flex-end; gap: 12px;
+    margin-top: 28px; padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .btn-reset {
+    padding: 12px 28px; border-radius: 10px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--dim); font-family: 'Exo 2', sans-serif;
+    font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-reset:hover { border-color: var(--dim); color: var(--text); }
+  .btn-predict {
+    padding: 12px 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none; color: var(--bg);
+    font-family: 'Exo 2', sans-serif; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: all 0.25s;
+    box-shadow: 0 4px 20px rgba(0,212,255,0.3);
+  }
+  .btn-predict:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,212,255,0.45); }
+
+  /* Range inputs */
+  .range-group { display: flex; flex-direction: column; gap: 6px; }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-row input[type=range] {
+    flex: 1; height: 4px; padding: 0;
+    accent-color: var(--accent);
+    border: none; background: transparent;
+  }
+  .range-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem; color: var(--accent);
+    min-width: 36px; text-align: right;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">🛡 IDS</a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/dashboard" class="active">Predict</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <h1>Packet <span>Analysis</span></h1>
+    <p>Enter network packet details below to classify as Normal or Attack</p>
+  </div>
+
+  <!-- Quick presets -->
+  <div class="presets">
+    <span style="font-size:0.8rem;color:var(--dim);align-self:center;margin-right:4px">Quick Fill:</span>
+    <button class="preset-btn normal-preset" onclick="fillNormal()">✅ Normal Packet</button>
+    <button class="preset-btn attack-preset" onclick="fillDoS()">⚠ DoS Attack</button>
+    <button class="preset-btn attack-preset" onclick="fillProbe()">🔍 Probe Attack</button>
+    <button class="preset-btn attack-preset" onclick="fillR2L()">🔓 R2L Attack</button>
+  </div>
+
+  <form action="/predict" method="POST">
+
+    <!-- Basic Connection Info -->
+    <div class="form-card">
+      <div class="section-title">01 — Connection Details</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Duration (seconds)</label>
+          <input type="number" name="duration" id="duration" placeholder="0" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Protocol Type</label>
+          <select name="protocol_type" id="protocol_type">
+            {% for p in protocols %}
+            <option value="{{ p }}" {% if p=='tcp' %}selected{% endif %}>{{ p.upper() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Service</label>
+          <select name="service" id="service">
+            {% for s in services %}
+            <option value="{{ s }}" {% if s=='http' %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Flag</label>
+          <select name="flag" id="flag">
+            {% for f in flags %}
+            <option value="{{ f }}" {% if f=='SF' %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Source Bytes</label>
+          <input type="number" name="src_bytes" id="src_bytes" placeholder="0" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Destination Bytes</label>
+          <input type="number" name="dst_bytes" id="dst_bytes" placeholder="0" min="0" value="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- Packet Flags -->
+    <div class="form-card">
+      <div class="section-title">02 — Packet Flags</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Land (0 or 1)</label>
+          <input type="number" name="land" id="land" min="0" max="1" value="0">
+        </div>
+        <div class="form-group">
+          <label>Wrong Fragment (0–3)</label>
+          <input type="number" name="wrong_fragment" id="wrong_fragment" min="0" max="3" value="0">
+        </div>
+        <div class="form-group">
+          <label>Urgent (0–3)</label>
+          <input type="number" name="urgent" id="urgent" min="0" max="3" value="0">
+        </div>
+        <div class="form-group">
+          <label>Hot (0–40)</label>
+          <input type="number" name="hot" id="hot" min="0" max="40" value="0">
+        </div>
+        <div class="form-group">
+          <label>Failed Logins</label>
+          <input type="number" name="num_failed_logins" id="num_failed_logins" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Logged In (0 or 1)</label>
+          <input type="number" name="logged_in" id="logged_in" min="0" max="1" value="1">
+        </div>
+        <div class="form-group">
+          <label>Num Compromised</label>
+          <input type="number" name="num_compromised" id="num_compromised" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Root Shell (0 or 1)</label>
+          <input type="number" name="root_shell" id="root_shell" min="0" max="1" value="0">
+        </div>
+        <div class="form-group">
+          <label>SU Attempted (0 or 1)</label>
+          <input type="number" name="su_attempted" id="su_attempted" min="0" max="1" value="0">
+        </div>
+        <div class="form-group">
+          <label>Num Root</label>
+          <input type="number" name="num_root" id="num_root" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>File Creations</label>
+          <input type="number" name="num_file_creations" id="num_file_creations" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Num Shells</label>
+          <input type="number" name="num_shells" id="num_shells" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Access Files</label>
+          <input type="number" name="num_access_files" id="num_access_files" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Is Host Login (0/1)</label>
+          <input type="number" name="is_host_login" id="is_host_login" min="0" max="1" value="0">
+        </div>
+        <div class="form-group">
+          <label>Is Guest Login (0/1)</label>
+          <input type="number" name="is_guest_login" id="is_guest_login" min="0" max="1" value="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- Traffic Stats -->
+    <div class="form-card">
+      <div class="section-title">03 — Traffic Statistics</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Count (0–512)</label>
+          <input type="number" name="count" id="count" min="0" max="512" value="1">
+        </div>
+        <div class="form-group">
+          <label>Srv Count (0–512)</label>
+          <input type="number" name="srv_count" id="srv_count" min="0" max="512" value="1">
+        </div>
+        <div class="form-group">
+          <label>Serror Rate (0.0–1.0)</label>
+          <input type="number" name="serror_rate" id="serror_rate" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="form-group">
+          <label>Rerror Rate (0.0–1.0)</label>
+          <input type="number" name="rerror_rate" id="rerror_rate" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="form-group">
+          <label>Same Srv Rate (0.0–1.0)</label>
+          <input type="number" name="same_srv_rate" id="same_srv_rate" min="0" max="1" step="0.01" value="1.00">
+        </div>
+        <div class="form-group">
+          <label>Diff Srv Rate (0.0–1.0)</label>
+          <input type="number" name="diff_srv_rate" id="diff_srv_rate" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="form-group">
+          <label>Dst Host Count</label>
+          <input type="number" name="dst_host_count" id="dst_host_count" min="0" max="255" value="0">
+        </div>
+        <div class="form-group">
+          <label>Dst Host Srv Count</label>
+          <input type="number" name="dst_host_srv_count" id="dst_host_srv_count" min="0" max="255" value="0">
+        </div>
+        <div class="form-group">
+          <label>Dst Host Same Srv Rate</label>
+          <input type="number" name="dst_host_same_srv_rate" id="dst_host_same_srv_rate" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="form-group">
+          <label>Dst Host Serror Rate</label>
+          <input type="number" name="dst_host_serror_rate" id="dst_host_serror_rate" min="0" max="1" step="0.01" value="0.00">
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-row">
+      <button type="reset" class="btn-reset">Clear Form</button>
+      <button type="submit" class="btn-predict">🔍 Analyze Packet →</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+function setVal(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
+function setSelect(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
+
+function fillNormal() {
+  setVal('duration',0); setSelect('protocol_type','tcp');
+  setSelect('service','http'); setSelect('flag','SF');
+  setVal('src_bytes',215); setVal('dst_bytes',45076);
+  setVal('land',0); setVal('wrong_fragment',0); setVal('urgent',0);
+  setVal('hot',0); setVal('num_failed_logins',0); setVal('logged_in',1);
+  setVal('num_compromised',0); setVal('root_shell',0); setVal('su_attempted',0);
+  setVal('num_root',0); setVal('num_file_creations',0); setVal('num_shells',0);
+  setVal('num_access_files',0); setVal('is_host_login',0); setVal('is_guest_login',0);
+  setVal('count',1); setVal('srv_count',1);
+  setVal('serror_rate',0); setVal('rerror_rate',0);
+  setVal('same_srv_rate',1.0); setVal('diff_srv_rate',0);
+  setVal('dst_host_count',255); setVal('dst_host_srv_count',255);
+  setVal('dst_host_same_srv_rate',1.0); setVal('dst_host_serror_rate',0);
+}
+
+function fillDoS() {
+  setVal('duration',0); setSelect('protocol_type','tcp');
+  setSelect('service','http'); setSelect('flag','S0');
+  setVal('src_bytes',0); setVal('dst_bytes',0);
+  setVal('land',0); setVal('wrong_fragment',0); setVal('urgent',0);
+  setVal('hot',0); setVal('num_failed_logins',0); setVal('logged_in',0);
+  setVal('count',511); setVal('srv_count',511);
+  setVal('serror_rate',1.0); setVal('rerror_rate',0);
+  setVal('same_srv_rate',1.0); setVal('diff_srv_rate',0);
+  setVal('dst_host_count',255); setVal('dst_host_srv_count',255);
+  setVal('dst_host_same_srv_rate',1.0); setVal('dst_host_serror_rate',1.0);
+}
+
+function fillProbe() {
+  setVal('duration',0); setSelect('protocol_type','icmp');
+  setSelect('service','eco_i'); setSelect('flag','SF');
+  setVal('src_bytes',1032); setVal('dst_bytes',0);
+  setVal('land',0); setVal('wrong_fragment',0); setVal('urgent',0);
+  setVal('hot',0); setVal('num_failed_logins',0); setVal('logged_in',0);
+  setVal('count',511); setVal('srv_count',511);
+  setVal('serror_rate',0); setVal('rerror_rate',0);
+  setVal('same_srv_rate',1.0); setVal('diff_srv_rate',0);
+  setVal('dst_host_count',255); setVal('dst_host_srv_count',255);
+  setVal('dst_host_same_srv_rate',1.0); setVal('dst_host_serror_rate',0);
+}
+
+function fillR2L() {
+  setVal('duration',0); setSelect('protocol_type','tcp');
+  setSelect('service','ftp'); setSelect('flag','SF');
+  setVal('src_bytes',105); setVal('dst_bytes',146);
+  setVal('land',0); setVal('wrong_fragment',0); setVal('urgent',0);
+  setVal('hot',0); setVal('num_failed_logins',0); setVal('logged_in',0);
+  setVal('count',1); setVal('srv_count',1);
+  setVal('serror_rate',0); setVal('rerror_rate',0);
+  setVal('same_srv_rate',1.0); setVal('diff_srv_rate',0);
+  setVal('dst_host_count',1); setVal('dst_host_srv_count',1);
+  setVal('dst_host_same_srv_rate',1.0); setVal('dst_host_serror_rate',0);
+}
+</script>
+</body>
+</html>
