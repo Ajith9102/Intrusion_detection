@@ -1,13 +1,29 @@
 """
 Intrusion Detection System - Flask Web App
-Run: python app.py
-Then open: http://127.0.0.1:5000
+With Login & Register
 """
 
-from flask import Flask, render_template, request, jsonify
-import pickle, os, numpy as np
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
+import pickle, os, numpy as np, json, hashlib
 
 app = Flask(__name__)
+app.secret_key = 'ids_secret_key_2024'
+
+# ── Users file ────────────────────────────────────────────────────────────────
+USERS_FILE = os.path.join(os.path.dirname(__file__), 'users.json')
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f)
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # ── Load model ────────────────────────────────────────────────────────────────
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'random_forest_model.pkl')
@@ -48,23 +64,71 @@ FEATURE_COLS = [
     'dst_host_srv_rerror_rate'
 ]
 
+# ── Auth routes ───────────────────────────────────────────────────────────────
 @app.route('/')
 def home():
-    return render_template('index.html')
+    if 'username' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        users = load_users()
+        if username in users and users[username] == hash_password(password):
+            session['username'] = username
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid username or password', 'error')
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm  = request.form.get('confirm_password', '')
+        users = load_users()
+        if not username or not password:
+            flash('Username and password are required', 'error')
+        elif username in users:
+            flash('Username already exists', 'error')
+        elif password != confirm:
+            flash('Passwords do not match', 'error')
+        elif len(password) < 6:
+            flash('Password must be at least 6 characters', 'error')
+        else:
+            users[username] = hash_password(password)
+            save_users(users)
+            flash('Account created! Please log in.', 'success')
+            return redirect(url_for('login'))
+    return render_template('register.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    return redirect(url_for('login'))
+
+# ── App routes ────────────────────────────────────────────────────────────────
 @app.route('/dashboard')
 def dashboard():
+    if 'username' not in session:
+        return redirect(url_for('login'))
     return render_template('dashboard.html',
                            protocols=PROTOCOLS,
                            flags=FLAGS,
-                           services=sorted(set(SERVICES)))
+                           services=sorted(set(SERVICES)),
+                           username=session['username'])
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    if 'username' not in session:
+        return redirect(url_for('login'))
     try:
         data = request.form
 
-        # Build feature vector
         raw = {
             'duration':           float(data.get('duration', 0)),
             'protocol_type':      data.get('protocol_type', 'tcp'),
@@ -112,16 +176,12 @@ def predict():
         if model_data:
             from sklearn.preprocessing import LabelEncoder
             le = LabelEncoder()
-            # Encode categoricals
             proto_map = {'tcp':0,'udp':1,'icmp':2}
             raw['protocol_type'] = proto_map.get(raw['protocol_type'], 0)
-
             svc_list = sorted(set(SERVICES))
             raw['service'] = svc_list.index(raw['service']) if raw['service'] in svc_list else 0
-
             flag_map = {f:i for i,f in enumerate(FLAGS)}
             raw['flag'] = flag_map.get(raw['flag'], 0)
-
             X = np.array([[raw[c] for c in FEATURE_COLS]])
             X_scaled = model_data['scaler'].transform(X)
             pred = model_data['model'].predict(X_scaled)[0]
@@ -129,7 +189,6 @@ def predict():
             confidence = float(max(prob)) * 100
             result = 'Attack' if pred == 1 else 'Normal'
         else:
-            # Demo mode — simple heuristic
             is_attack = (raw['src_bytes'] > 10000 or
                          raw['serror_rate'] > 0.5 or
                          raw['flag'] in ['S0','REJ'] or
